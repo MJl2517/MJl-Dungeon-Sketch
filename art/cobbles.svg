@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <defs><g id="row">
+    <rect x="2" y="2" width="21" height="21" rx="5"/>
+    <rect x="27" y="2" width="21" height="21" rx="6"/>
+    <rect x="52" y="2" width="21" height="21" rx="5"/>
+    <rect x="77" y="2" width="21" height="21" rx="6"/>
+  </g></defs>
+  <g fill="none" stroke="#000" stroke-width="1.2" opacity=".55">
+    <use href="#row"/><use href="#row" transform="translate(0 50)"/>
+    <use href="#row" transform="translate(12.5 25)"/><use href="#row" transform="translate(-87.5 25)"/>
+    <use href="#row" transform="translate(12.5 75)"/><use href="#row" transform="translate(-87.5 75)"/>
+  </g>
+</svg>

@@ -1,0 +1,3 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="16" viewBox="0 0 64 16">
+  <path fill="none" stroke="#000" stroke-width="1.1" stroke-linejoin="round" opacity=".88" d="M0 1l16 1 16-1 16 1 16-1M0 15l16-1 16 1 16-1 16 1M0 8l8-2 8-4M8 6l4 8M8 6l16 3 8-8M24 9l5 6M24 9l20-3 4-4M44 6l6 8M44 6l12 3 8-1M56 9l4-8"/>
+</svg>

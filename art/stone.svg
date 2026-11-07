@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <g fill="none" stroke="#000">
+    <path opacity=".32" stroke-width="1.6" d="M0 0h200M0 50h200M0 100h200M0 150h200M0 200h200M0 0v50M100 0v50M200 0v50M50 50v50M150 50v50M0 100v50M100 100v50M200 100v50M50 150v50M150 150v50"/>
+    <path opacity=".15" stroke-width="1.4" stroke-linecap="round" d="m18 31 7-4m104 48 8-3m-65 58 9-4m98 57 7-3"/>
+  </g>
+</svg>

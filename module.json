@@ -1,0 +1,21 @@
+{
+  "id": "mjl-dungeon-sketch",
+  "title": "MJl - Dungeon Sketch",
+  "description": "Рисуйте подземелья прямо на сцене Foundry, добавляйте этажи, стены, свет, мебель и точки интереса.",
+  "version": "0.13.8",
+  "url": "https://github.com/MJl2517/MJl-Dungeon-Sketch",
+  "manifest": "https://raw.githubusercontent.com/MJl2517/MJl-Dungeon-Sketch/main/module.json",
+  "download": "https://raw.githubusercontent.com/MJl2517/MJl-Dungeon-Sketch/main/dist/mjl-dungeon-sketch.zip",
+  "authors": [{"name": "MJl tools"}],
+  "compatibility": {"minimum": "14", "verified": "14.361", "maximum": "14.999"},
+  "esmodules": ["scripts/main.mjs"],
+  "styles": ["styles/theme.css", "sketch.css"],
+  "relationships": {
+    "recommends": [
+      {"id":"socketlib","type":"module","compatibility":{"minimum":"1.1.4"}},
+      {"id":"mjl-campaign-journal","type":"module","compatibility":{"minimum":"1.3.6"}},
+      {"id":"ag-fifthpendium","type":"module"}
+    ]
+  },
+  "socket": true
+}
