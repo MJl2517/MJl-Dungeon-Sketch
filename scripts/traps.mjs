@@ -39,9 +39,15 @@ export function drawTrap(ctx,f) {
     ctx.lineWidth=3;ctx.strokeStyle=metal;line([-140,0],[140,0]);ctx.strokeStyle=ink;ctx.lineWidth=1.5;line([-140,3],[140,3]);
     ctx.fillStyle=color;for(const x of [-142,142]){ctx.fillRect(x-4,-20,8,40);ctx.strokeRect(x-4,-20,8,40);}ctx.fillStyle="#c6a15c";poly([[-5,-10],[5,0],[-5,10]]);
   }else if(f.kind==="pressurePlate"){
-    ctx.fillRect(-43,-43,86,86);ctx.strokeRect(-43,-43,86,86);ctx.strokeRect(-32,-32,64,64);
-    ctx.fillStyle=metal;for(const x of [-36,36])for(const y of [-36,36])circle(x,y,3);ctx.fillStyle=color;poly([[0,-19],[19,0],[0,19],[-19,0]],false);
-    ctx.strokeStyle="#ddd0b8";line([-23,-24],[24,-24]);
+    poly([[-30,-42],[30,-42],[42,-30],[42,30],[30,42],[-30,42],[-42,30],[-42,-30]]);
+    ctx.strokeStyle="#e0d2b9";line([-38,-27],[-27,-38]);line([-27,-38],[27,-38]);line([-38,-27],[-38,27]);
+    ctx.strokeStyle="#5f5147";line([38,-27],[38,27]);line([38,27],[27,38]);line([27,38],[-27,38]);
+    ctx.fillStyle=ink;ctx.globalAlpha=.65;
+    for(const [x,y,angle] of [[-12,-5,-.12],[12,6,.12]]){
+      ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.beginPath();ctx.ellipse(0,-6,6,10,0,0,Math.PI*2);ctx.fill();ctx.fillRect(-4,7,8,7);ctx.restore();
+    }
+    ctx.globalAlpha=1;ctx.lineWidth=1.5;
+    line([27,38],[25,29]);line([25,29],[29,25]);line([-27,-38],[-24,-29]);
   }else{
     ctx.strokeStyle=color;ctx.lineWidth=4;circle(0,0,42,false);circle(0,0,33,false);
     const points=Array.from({length:5},(_,i)=>{const a=-Math.PI/2+i*Math.PI*4/5;return [Math.cos(a)*29,Math.sin(a)*29];});poly(points,false);

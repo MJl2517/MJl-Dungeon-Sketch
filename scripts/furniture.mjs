@@ -21,6 +21,7 @@ export const FURNITURE = {
   crate:{name:"Ящик",icon:"fa-box-open",width:1,height:1,container:true},
   barrel:{name:"Бочка",icon:"fa-drum",width:0.7,height:0.7,container:true},
   shelf:{name:"Стеллаж",icon:"fa-book",width:2,height:0.5,container:true},
+  weaponRack:{name:"Оружейная стойка",icon:"fa-shield-halved",width:2,height:1,container:true},
   rug:{name:"Ковёр",icon:"fa-border-all",width:2,height:3}
 };
 
@@ -153,6 +154,17 @@ export function drawFurniture(ctx,f) {
     }else if(f.kind==="shelf"){
       const count=Math.max(1,Math.min(40,Math.floor((w-20)/16))),slot=(w-20)/count;
       for(let i=0;i<count;i++){const height=Math.min(h-24,54+(i%3)*8);ctx.fillStyle=["#6b8182","#a35748","#c1a671"][i%3];rect(10+i*slot,h-12-height,Math.min(14,slot-2),height);}
+    }else if(f.kind==="weaponRack"){
+      ctx.fillStyle="#3d312e";rect(13,13,w-26,h-26);
+      ctx.fillStyle=f.color??"#9b7351";rect(9,27,w-18,10);rect(9,64,w-18,10);
+      const blade=points=>{ctx.beginPath();ctx.moveTo(...points[0]);for(const point of points.slice(1))ctx.lineTo(...point);ctx.closePath();ctx.fill();ctx.stroke();};
+      for(const [i,x] of [w*.25,w*.5,w*.75].entries()){
+        ctx.fillStyle="#a7754c";rect(x-3,27,6,60);
+        ctx.fillStyle="#c8c9c4";
+        if(i===0){blade([[x,10],[x+7,22],[x+6,62],[x-6,62],[x-7,22]]);ctx.fillStyle="#d1ab6f";rect(x-13,62,26,6);}
+        if(i===1)blade([[x,10],[x+10,28],[x,40],[x-10,28]]);
+        if(i===2)blade([[x,21],[x+17,13],[x+22,25],[x+20,42],[x+12,45],[x,34]]);
+      }
     }else if(f.kind==="chair"){
       ctx.lineWidth=9;line(8,8,w-8,8);ctx.lineWidth=2;ctx.strokeRect(15,27,w-30,h-42);
     }else if(f.kind==="rug"){
@@ -595,14 +607,33 @@ export function installContainerInteraction() {
   interactionInstalled=true;
   for(const hook of ["updateToken","deleteToken","controlToken","updateScene","canvasReady","sightRefresh"])Hooks.on(hook,refreshContainerMarkers);
   Hooks.on("canvasTearDown",()=>{for(const entry of inventoryWindows)entry.app.close();inventoryWindows.clear();markerKey=null;});
-  let consumed;
-  for(const type of ["pointerup","pointercancel"])window.addEventListener(type,event=>{
-    if(event.pointerId!==consumed)return;consumed=undefined;event.preventDefault();event.stopImmediatePropagation();
-  },true);
-  window.addEventListener("pointerdown",event=>{
-    if(!event.altKey||event.button!==0||!canvas.ready||!canvas.level||event.target!==canvas.app.view)return;
+  let consumed,rightClick;
+  const hit=event=>{
     const p=canvas.canvasCoordinatesFromClient({x:event.clientX,y:event.clientY}),dims=canvas.scene.getDimensions();
     const f=furnitureAt(canvas.scene.getFlag(ID,canvas.level.id)?.model??{},[p.x-dims.sceneX,p.y-dims.sceneY]);
+    return {p,f};
+  };
+  window.addEventListener("pointermove",event=>{
+    if(event.pointerId===rightClick?.pointerId&&Math.hypot(event.clientX-rightClick.x,event.clientY-rightClick.y)>5)rightClick=null;
+  },true);
+  for(const type of ["pointerup","pointercancel"])window.addEventListener(type,event=>{
+    if(event.pointerId===consumed){consumed=undefined;event.preventDefault();event.stopImmediatePropagation();return;}
+    if(event.pointerId!==rightClick?.pointerId)return;
+    const click=rightClick;rightClick=null;
+    if(type!=="pointerup"||event.button!==2||event.target!==canvas.app.view||!canvas.ready||canvas.scene!==click.scene||
+      canvas.level?.id!==click.level||canvas.dungeonSketch?.active||Math.hypot(event.clientX-click.x,event.clientY-click.y)>5)return;
+    const {f}=hit(event);
+    if(f?.container&&f.id===click.id)openContainer(click.scene,click.level,f).catch(error=>ui.notifications.warn(error.message));
+  },true);
+  window.addEventListener("pointerdown",event=>{
+    if(!canvas.ready||!canvas.level||event.target!==canvas.app.view)return;
+    if(event.button===2&&game.user.isGM&&!canvas.dungeonSketch?.active){
+      const {f}=hit(event);
+      rightClick=f?.container?{pointerId:event.pointerId,scene:canvas.scene,level:canvas.level.id,id:f.id,x:event.clientX,y:event.clientY}:null;
+      return;
+    }
+    if(!event.altKey||event.button!==0)return;
+    const {p,f}=hit(event);
     if(!f?.container||(!game.user.isGM&&canvas.visibility.tokenVision&&!canvas.visibility.testVisibility(p,{tolerance:0})))return;
     consumed=event.pointerId;event.preventDefault();event.stopImmediatePropagation();
     const promise=game.user.isGM&&canvas.dungeonSketch?.active?openContainer(canvas.scene,canvas.level.id,f):viewContainer(canvas.scene,canvas.level.id,f,controlledToken(canvas.scene,canvas.level.id,f)?.id);

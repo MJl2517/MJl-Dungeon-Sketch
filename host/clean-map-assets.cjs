@@ -5,7 +5,7 @@ const os = require("node:os");
 const {execFile} = require("node:child_process");
 const {promisify} = require("node:util");
 
-const namePattern = /mjl-dungeon-sketch-(?:[a-z0-9]{16}-[a-z0-9]{16}-(?:live-[01]|[a-f0-9]{8,64}|map-[a-z0-9]{16,20})|trap-(?:[a-f0-9]{8,64}|image-[a-z0-9]{16,20}))\.(?:png|webp)/gi;
+const namePattern = /mjl-dungeon-sketch-(?:[a-z0-9]{16}-[a-z0-9]{16}-(?:live-[01]|[a-f0-9]{8,64}|map-[a-z0-9]{16,20})|trap-(?:[a-f0-9]{8,64}|image-(?:plate2-)?[a-z0-9]{16,20}))\.(?:png|webp)/gi;
 const managed = name => name.match(namePattern)?.[0] === name;
 const databaseFile = /^(?:CURRENT|MANIFEST-\d+|\d+\.(?:ldb|log))$/;
 

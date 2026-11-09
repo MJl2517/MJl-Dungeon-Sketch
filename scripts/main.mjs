@@ -1,6 +1,6 @@
 import {ID, TITLE, STAIRS, STAIR_COLOR, PASSAGES, empty, rectangle, ellipse, brush, bounds, combine, distance, stairFromEdge, stairAt, stairLines, stairOutline, eraseObjects, generate, wallsFor} from "./model.mjs";
 import {PRESETS, FLOOR_TEXTURES, WALL_TEXTURES, COLORS, drawMap, png} from "./art.mjs";
-import {dimensions, owned, publish, publishDraft, read, styles, installStairGuard, hasLegacyImages, discardDeletedFloor} from "./publish.mjs";
+import {dimensions, owned, publish, publishDraft, read, styles, installStairGuard, hasLegacyImages, discardDeletedFloor, upgradePressurePlateArt} from "./publish.mjs";
 import {chronicleMap,placePoint} from "./points.mjs";
 import {FURNITURE, furnitureAt, drawFurniture, furnitureRasterSize, furnitureBounds, positionFurniture, stepFurnitureScale, wheelFurniture, openContainer, inventoryBackup, installContainerInteraction, installLootDragDrop, connectContainers, refreshContainerMarkers, requestLightSwitch} from "./furniture.mjs";
 import {LIGHTS, LIGHT_COLORS, lightSource, lightFixture, drawLightFixture, installLightInteraction} from "./lights.mjs";
@@ -729,11 +729,11 @@ function makeLayer() {
       const p=event?.interactionData?.origin??canvas.mousePosition,at=this.point(p,{shiftKey:true},false);
       const {scene,level,draft}=session(),f=at&&placedAt(draft.model,at);
       if(!f){const stair=at&&stairAt(draft.model,at);if(stair){this.selectedId=null;this.selectedStairId=stair.id;this.openGroup("pointer");}return;}
+      if(f.container){openContainer(scene,level.id,f).catch(report);return;}
       dialog().wait({window:{title:PLACED[f.kind].name,icon:"fa-solid fa-dungeon"},classes:["mjl-brand"],content:TRAPS[f.kind]?"Действие с ловушкой":"Действие с выбранной мебелью",rejectClose:false,buttons:[
         {action:"rotate",label:"Повернуть 90°",callback:()=>this.change(model=>{const item=collection(model,f).find(i=>i.id===f.id);Object.assign(item,this.alignFurniture({...item,rotation:(item.rotation+90)%360},undefined,item));})},
         {action:"delete",label:"Удалить",callback:()=>this.change(model=>{const items=collection(model,f),index=items.findIndex(i=>i.id===f.id);if(index>=0)items.splice(index,1);})},
-        ...(TRAPS[f.kind]?[{action:"visibility",label:trapHidden(f)?"Показать игрокам":"Скрыть от игроков",callback:()=>this.toggleTrap(f.id)}]:[]),
-        ...(f.container?[{action:"inventory",label:"Содержимое",callback:()=>openContainer(scene,level.id,f)}]:[])
+        ...(TRAPS[f.kind]?[{action:"visibility",label:trapHidden(f)?"Показать игрокам":"Скрыть от игроков",callback:()=>this.toggleTrap(f.id)}]:[])
       ]}).catch(report);
     }
 
@@ -1081,6 +1081,7 @@ Hooks.once("ready",()=>{
       context.draft.dirty=true;
       saveNow(context).catch(report);
     }
+    saveQueue=saveQueue.catch(()=>{}).then(()=>upgradePressurePlateArt(scene)).catch(report);
   }
 });
 Hooks.on("deleteLevel",level=>{

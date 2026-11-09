@@ -15,7 +15,7 @@ async function test(app) {
     }
     const map = hash => `mjl-dungeon-sketch-defaultLevel0000-defaultLevel0000-map-${hash.repeat(20)}.webp`;
     const legacy = "mjl-dungeon-sketch-defaultLevel0000-defaultLevel0000-live-0.webp";
-    const trap = `mjl-dungeon-sketch-trap-image-${"a".repeat(20)}.webp`;
+    const trap = `mjl-dungeon-sketch-trap-image-plate2-${"a".repeat(20)}.webp`;
     const names = [map("a"),map("b"),map("c"),map("d"),trap,legacy,"outside.webp"];
     for (const name of names) {
       const file = path.join(name === legacy ? world : assets,name);

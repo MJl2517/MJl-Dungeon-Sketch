@@ -4,6 +4,7 @@ export const LIGHTS={
   light:{name:"Лампа",icon:"fa-lightbulb",bright:15,dim:30,color:"#ffce82",alpha:0.35,size:0.32,animation:null},
   torch:{name:"Факел",icon:"fa-fire-flame-curved",bright:20,dim:40,color:"#ff9a42",alpha:0.4,size:0.3,animation:{type:"torch",speed:4,intensity:3}},
   candle:{name:"Свеча",icon:"fa-fire",bright:5,dim:10,color:"#ffdba0",alpha:0.25,size:0.22,animation:{type:"torch",speed:2,intensity:1}},
+  campfire:{name:"Костёр",icon:"fa-fire-burner",bright:20,dim:40,color:"#ff9a42",alpha:0.4,size:0.76,animation:{type:"torch",speed:3,intensity:4}},
   magic:{name:"Магический огонь",icon:"fa-wand-sparkles",bright:20,dim:40,color:"#7fc7ff",alpha:0.3,size:0.32,animation:{type:"pulse",speed:2,intensity:2}},
   crystal:{name:"Кристалл",icon:"fa-gem",bright:10,dim:20,color:"#ba94ff",alpha:0.4,size:0.36,animation:{type:"emanation",speed:1,intensity:2}}
 };
@@ -125,6 +126,16 @@ export function drawLightFixture(ctx,f) {
     ctx.fillStyle="#805337";ctx.fillRect(-9,8,18,37);ctx.strokeRect(-9,8,18,37);flame();
   }else if(f.kind==="candle"){
     disk(0,8,32,"#c49b59");disk(0,5,20,"#f2e6cb");ctx.save();ctx.translate(0,-6);ctx.scale(0.55,0.65);flame();ctx.restore();
+  }else if(f.kind==="campfire"){
+    disk(0,0,36,"#41312c");
+    for(let i=0;i<9;i++){
+      const a=i*2*Math.PI/9;
+      disk(Math.cos(a)*37,Math.sin(a)*37,8+(i%3),["#8d8170","#a79885","#716a61"][i%3]);
+    }
+    ctx.lineWidth=15;line(-21,-12,21,17);line(21,-12,-21,17);
+    ctx.strokeStyle="#a2714a";ctx.lineWidth=9;line(-21,-12,21,17);line(21,-12,-21,17);
+    ctx.strokeStyle="#47352a";ctx.lineWidth=5;
+    ctx.save();ctx.translate(0,-5);ctx.scale(.76,.8);flame();ctx.restore();
   }else if(f.kind==="magic"){
     disk(0,0,25,f.color);ctx.strokeStyle="#e5f7ff";ctx.lineWidth=3;
     for(const [x,y] of [[0,-43],[43,0],[0,43],[-43,0]])line(x*0.75,y*0.75,x,y);

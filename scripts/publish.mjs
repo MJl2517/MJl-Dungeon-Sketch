@@ -86,10 +86,25 @@ const worldFolder = () => `worlds/${game.world.id}`;
 const imageFolder = () => `${worldFolder()}/${ID}`;
 const inImageFolder = src => src?.startsWith(`${imageFolder()}/`);
 const legacyImage = src => src?.startsWith(`${worldFolder()}/${ID}-`) && !src.slice(worldFolder().length+1).split("?")[0].includes("/");
+const pressurePlatePrefix=`${ID}-trap-image-plate2-`;
+const currentPlateArt=src=>src?.startsWith(`${imageFolder()}/${pressurePlatePrefix}`);
 
 export function hasLegacyImages(scene,level) {
   const state=read(scene,level);
   return !state.pending && (legacyImage(state.asset) || owned(scene,"Tile",level.id).some(tile=>legacyImage(tile.texture.src)));
+}
+
+export async function upgradePressurePlateArt(scene) {
+  for(const level of scene.levels){
+    const state=read(scene,level);
+    if(state.pending)continue;
+    const plates=new Map((state.model.traps??[]).filter(trap=>trap.kind==="pressurePlate").map(trap=>[`trap:${trap.id}`,trap]));
+    if(!plates.size)continue;
+    const old=owned(scene,"Tile",level.id).filter(tile=>plates.has(tile.getFlag(ID,"key"))&&inImageFolder(tile.texture.src)&&!currentPlateArt(tile.texture.src));
+    if(!old.length)continue;
+    const sources=await publishTrapImages(scene,level,state,old.map(tile=>plates.get(tile.getFlag(ID,"key"))));
+    await scene.updateEmbeddedDocuments("Tile",old.map(tile=>({_id:tile.id,"texture.src":sources[plates.get(tile.getFlag(ID,"key")).id]})));
+  }
 }
 
 export async function discardDeletedFloor(scene,levelId) {
@@ -182,7 +197,7 @@ async function publishTrapImages(scene,level,state,traps) {
   const style=trap=>`${trap.kind}:${trap.color??"#9b7351"}`;
   for(const trap of state.model.traps??[]){
     const src=tiles.get(`trap:${trap.id}`);
-    if(inImageFolder(src)) byStyle.set(style(trap),src);
+    if(inImageFolder(src)&&(trap.kind!=="pressurePlate"||currentPlateArt(src)))byStyle.set(style(trap),src);
   }
   return Object.fromEntries(await Promise.all(traps.map(async trap=>{
     const key=style(trap);
@@ -195,7 +210,8 @@ async function trapImage(trap) {
   if(!TRAPS[trap.kind])throw Error("Неизвестный рисунок ловушки.");
   const type=TRAPS[trap.kind],scale=256/Math.max(type.width,type.height),image=document.createElement("canvas");image.width=Math.round(type.width*scale);image.height=Math.round(type.height*scale);
   drawTrap(image.getContext("2d"),{kind:trap.kind,color:trap.color,x:0,y:0,width:image.width,height:image.height});
-  const blob=await png(image),hash=await fileHash(blob),file=new File([blob],`${ID}-trap-image-${hash}.png`,{type:"image/png"});
+  const blob=await png(image),hash=await fileHash(blob);
+  const file=new File([blob],`${trap.kind==="pressurePlate"?pressurePlatePrefix:`${ID}-trap-image-`}${hash}.png`,{type:"image/png"});
   return uploadImage(file);
 }
 async function upload(scene, level, model, size, palette, background) {
@@ -246,8 +262,11 @@ async function finish(scene, level, state, pending) {
     name: "Dungeon Sketch", texture: {src:asset, anchorX:0, anchorY:0}, x,y,width:size.width,height:size.height,
     elevation: elevation(level), levels:visibleLevels, sort: -100000, locked: true
   }]] : [];
-  for(const trap of model.traps??[]){
-    const asset=pending.trapAssets?.[trap.id];if(!asset)throw Error("Не найден рисунок ловушки для завершения сохранения.");
+  const traps=model.traps??[];
+  const oldPlates=traps.filter(trap=>trap.kind==="pressurePlate"&&!currentPlateArt(pending.trapAssets?.[trap.id]));
+  const refreshed=oldPlates.length?await publishTrapImages(scene,level,state,oldPlates):{};
+  for(const trap of traps){
+    const asset=refreshed[trap.id]??pending.trapAssets?.[trap.id];if(!asset)throw Error("Не найден рисунок ловушки для завершения сохранения.");
     tiles.push([`trap:${trap.id}`,{...trapTile(trap,{x,y,level:level.id,elevation:elevation(level),asset}),levels:visibleLevels}]);
   }
   await reconcile(scene, "Tile", level.id, identified("Tile",tiles));

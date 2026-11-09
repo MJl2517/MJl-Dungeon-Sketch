@@ -150,9 +150,11 @@ console.log(`OK: all ${Object.keys(FURNITURE).length} furniture designs use unif
    drawLightFixture(new Proxy({},{get:()=>()=>{}}),fixture);
  }
  assert.equal(lightSource("torch",[0,0],{units:"ft"},{scale:2,color:"#abcdef"}).dim,80);
+ assert.deepEqual(lightConfig(lightSource("campfire",[0,0],{units:"ft"})).animation,{type:"torch",speed:3,intensity:4});
+ assert.equal(FURNITURE.weaponRack.container,true);
  assert.deepEqual(lightConfig({bright:10,dim:20,color:"#ff0000"}),{bright:10,dim:20,color:"#ff0000",alpha:0.35,animation:{type:null}});
 }
-console.log("OK: wheel rotation wraps, scaling preserves center/aspect/limits; five light presets, metric radii, animation toggle, fixture centers and legacy light config.");
+console.log("OK: wheel rotation wraps, scaling preserves center/aspect/limits; light presets, metric radii, animation toggle, fixture centers and legacy light config.");
 assert.equal(furnitureAt(furnished,[150,80]).id,"chest");
 assert.equal(furnitureAt(furnished,[110,120]),undefined);
 assert.equal(furnitureAt({},[100,100]),undefined);
