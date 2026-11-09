@@ -197,7 +197,7 @@ function makeLayer() {
         <p class="mds-tool-hint"></p>
         <div class="mds-pair"><label class="mds-toggle"><input type="checkbox" role="switch" name="snap"><span>К сетке</span></label><label class="mds-toggle"><input type="checkbox" role="switch" name="cut"><span>Вырезать пол</span></label></div>
         <label data-structure>Стиль кисти <select name="style"></select></label>
-        <fieldset data-opening hidden><legend>Проём / обрыв</legend><label class="mds-toggle"><input name="openingRailing" type="checkbox" role="switch" checked><span>Поставить перила по краю</span></label><small>Обведите участок без пола. Обзор вниз включается в «Настроить этажи». Токены под нарисованным полом скрыты от игроков.</small></fieldset>
+        <fieldset data-opening hidden><legend>Проём / обрыв</legend><label class="mds-toggle"><input name="openingRailing" type="checkbox" role="switch" checked><span>Поставить перила по краю</span></label><small>Обведите участок без пола. Обзор вниз включается в «Настроить этажи».</small></fieldset>
         <fieldset data-furniture hidden><legend data-placement-name>Размещение мебели</legend>
           <label>Размер × <input name="furnitureScale" type="number" min="0.5" max="4" step="0.1" value="1"></label>
           <label>Поворот <input name="furnitureRotation" type="number" min="0" max="359" step="15" value="0"> ° <button type="button" data-do="rotate" title="Q" aria-label="Повернуть объект на 90 градусов"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></button></label>

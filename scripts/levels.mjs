@@ -18,7 +18,8 @@ export function pointUnderFloor(rings,x,y) {
 
 function coveredToken(token) {
   const scene=canvas.scene,view=canvas.level,doc=token?.document;
-  if(game.user.isGM||!view||!doc||token.isPreview||doc.parent!==scene||doc.level===view.id||doc.elevation>=view.elevation.base)return false;
+  if(!view||!doc||token.isPreview||doc.parent!==scene||doc.level===view.id||doc.elevation>=view.elevation.base)return false;
+  if(game.user.isGM&&!canvas.tokens.controlled.some(t=>t.document.level===view.id))return false;
   const floors=[];
   for(const id of [view.id,...view.visibility.levels]){
     const floor=scene.levels.get(id);
@@ -43,13 +44,13 @@ export function installFloorTokenVisibility() {
   };
   layer.layerClass=class SketchTokenLayer extends TokenLayer {
     setTargets(ids,options){
-      if(game.user.isGM||options?.mode==="release")return super.setTargets(ids,options);
+      if(options?.mode==="release")return super.setTargets(ids,options);
       const requested=[...ids],visible=requested.filter(id=>!coveredToken(this.get(id)));
       if(visible.length||!requested.length)return super.setTargets(visible,options);
     }
   };
   const refresh=()=>{
-    if(game.user.isGM||!canvas.ready)return;
+    if(!canvas.ready)return;
     for(const token of canvas.tokens.placeables)token.renderFlags.set({refreshVisibility:true});
   };
   Hooks.on("updateScene",(scene,changes)=>{
@@ -58,8 +59,9 @@ export function installFloorTokenVisibility() {
   Hooks.on("updateLevel",(level,changes)=>{
     if(level.parent===canvas.scene&&(changes.elevation||changes.visibility))refresh();
   });
+  Hooks.on("controlToken",()=>{if(game.user.isGM)refresh();});
   Hooks.on("updateToken",(doc,changes)=>{
-    if(!game.user.isGM&&doc.parent===canvas.scene&&Object.hasOwn(changes,"elevation"))
+    if(doc.parent===canvas.scene&&Object.hasOwn(changes,"elevation"))
       doc.object?.renderFlags.set({refreshVisibility:true});
   });
   Hooks.on("refreshToken",token=>{
@@ -130,7 +132,7 @@ export async function configureFloors(scene,{beforeSave,afterSave}) {
     content:`<section class="mjl-dungeon-panel mds-level-setup"><p>Укажите число этажей и высоту от пола до пола. Модуль расставит высоты, перенесёт принадлежащие ему рисунки и свет, сохранив ID этажей и положение токенов относительно пола.</p>
       <div class="mds-pair"><label>Этажей <input name="count" type="number" min="${existing.length}" max="20" step="1" value="${count}" required></label><label>Высота этажа, ${foundry.utils.escapeHTML(units)} <input name="height" type="number" min="0.1" max="10000" step="any" value="${height}" required></label></div>
       <label>Отметка первого этажа, ${foundry.utils.escapeHTML(units)} <input name="base" type="number" step="any" value="${base}" required></label>
-      <div data-floor-rows></div><p>«Видеть этажи ниже» открывает вид через проёмы. Нарисованный пол скрывает токены под ним. «Сплошное перекрытие» дополнительно влияет на лучи обзора, свет, звук и движение между этажами.</p><output data-floor-save></output></section>`,
+      <div data-floor-rows></div><p>«Видеть этажи ниже» открывает вид через проёмы. Нарисованный пол скрывает токены под ним от игроков и мастера с выбранным токеном на этом этаже. «Сплошное перекрытие» дополнительно влияет на лучи обзора, свет, звук и движение между этажами.</p><output data-floor-save></output></section>`,
     ok:{label:"Настроить этажи",callback:async(_event,button,dialog)=>{
       const form=button.form,selected=Array.from({length:count},(_,i)=>({id:rows[i].id,name:form.elements[`floorName${i}`].value,seeBelow:form.elements[`below${i}`].checked,surface:form.elements[`surface${i}`].checked}));
       const output=form.querySelector("[data-floor-save]");output.textContent="Настройка этажей…";
