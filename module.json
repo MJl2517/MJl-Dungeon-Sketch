@@ -2,7 +2,7 @@
   "id": "mjl-dungeon-sketch",
   "title": "MJl - Dungeon Sketch",
   "description": "Рисуйте подземелья прямо на сцене Foundry, добавляйте этажи, стены, свет, мебель и точки интереса.",
-  "version": "0.13.8",
+  "version": "0.13.9",
   "url": "https://github.com/MJl2517/MJl-Dungeon-Sketch",
   "manifest": "https://raw.githubusercontent.com/MJl2517/MJl-Dungeon-Sketch/main/module.json",
   "download": "https://raw.githubusercontent.com/MJl2517/MJl-Dungeon-Sketch/main/dist/mjl-dungeon-sketch.zip",

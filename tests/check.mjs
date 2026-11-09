@@ -7,7 +7,7 @@ import {inkColor, FLOOR_TEXTURES, WALL_TEXTURES, floorPatternPlacement,drawStair
 import {FURNITURE, furnitureAt, drawFurniture, furnitureRasterSize, furnitureBounds, positionFurniture, stepFurnitureScale, wheelFurniture, validateInventories, containerDistance, validateContainerAccess, containerMarkerCenter, containerConnectionIssue, connectContainers} from "../scripts/furniture.mjs";
 import {LIGHTS,lightSource,lightConfig,lightFixture,drawLightFixture,toggleLight,canReachLight,handleLightSwitch} from "../scripts/lights.mjs";
 import {TRAPS,drawTrap,trapHidden,trapTile,trapMarkerPoint} from "../scripts/traps.mjs";
-import {floorPlan,visibleOn,floorSurface,SURFACE_KEY,floorShade,dimFloorTint,refreshLevelContrast} from "../scripts/levels.mjs";
+import {floorPlan,visibleOn,floorSurface,SURFACE_KEY,floorShade,dimFloorTint,refreshLevelContrast,pointUnderFloor} from "../scripts/levels.mjs";
 import {chronicleMap} from "../scripts/points.mjs";
 const require = createRequire(import.meta.url);
 const root = process.env.FOUNDRY_APP ?? "C:/Program Files/Foundry Virtual Tabletop/resources/app";
@@ -188,6 +188,12 @@ console.log("OK: six trap drawings preserve natural aspect; default-hidden nativ
  const hole=combine([rectangle([0,0],[600,600])],[rectangle([200,200],[400,400])],"ctDifference"),level={name:"2 этаж",elevation:{base:10},getFlag:()=>true};
  const surface=floorSurface(level,{...empty(),floor:hole},{x:100,y:200},["B"]);assert.equal(surface.shapes.filter(s=>s.hole).length,1);assert.equal(surface.behaviors[0].type,"defineSurface");assert.deepEqual(surface.elevation,{bottom:10,top:10});
  assert.equal(floorSurface({...level,getFlag:()=>false},{...empty(),floor:hole},{x:0,y:0},["B"]),null);
+ assert.equal(pointUnderFloor(hole,100,100),true);
+ assert.equal(pointUnderFloor(hole,300,300),false);
+ assert.equal(pointUnderFloor(hole,700,100),false);
+ const island=combine(hole,[rectangle([275,275],[325,325])]);
+ assert.equal(pointUnderFloor(island,300,300),true);
+ assert.equal(pointUnderFloor(island,350,350),false);
 }
 console.log("OK: floor plan keeps IDs/above-level links, applies heights and below visibility; voids remove walls, railings override partial boundaries, floor surfaces keep holes and exact elevations.");
 const inventory={version:1,containers:{scene_level_chest:{rev:1,items:[{uuid:"Compendium.dnd5e.items.Item.ruby",name:"Ruby",quantity:2}]}}};
