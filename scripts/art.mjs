@@ -9,6 +9,24 @@ export const PRESETS = {
   blue: {name: "Чертёж", floor: "#b9d6df", wall: "#254960", width: 6, floorTexture: `modules/${ID}/art/blue.svg`, wallTexture: ""}
 };
 
+export function styleValue(style) {
+  return {name:String(style.name??"").trim(),floor:style.floor,wall:style.wall,
+    floorTexture:style.floorTexture??"",wallTexture:style.wallTexture??"",width:Number(style.width)};
+}
+
+export function styleChoices(saved) {
+  const seen=new Set(),names=new Map();
+  return Object.entries({...PRESETS,...saved}).filter(([,style])=>{
+    const signature=JSON.stringify(styleValue(style));
+    if(seen.has(signature))return false;
+    seen.add(signature);return true;
+  }).map(([key,style])=>{
+    const count=(names.get(style.name)??0)+1;
+    names.set(style.name,count);
+    return [key,count===1?style.name:`${style.name} · ${count}`];
+  });
+}
+
 const asset = name => `modules/${ID}/art/${name}.svg`;
 export const FLOOR_TEXTURES = [
   ["", "Без узора"], ["tiles", "Квадратная плитка"], ["slabs", "Каменные плиты"],
@@ -167,9 +185,9 @@ export async function drawMap(model, dimensions, presets, {preview = false, back
   ctx.scale(canvas.width / dimensions.width, canvas.height / dimensions.height);
   ctx.lineJoin = ctx.lineCap = "round";
   const styles = {...PRESETS, ...presets};
-  const base = styles[model.style] ?? PRESETS.stone;
+  const base = model.styleOverride ?? styles[model.style] ?? PRESETS.stone;
   const floorResolution=Math.max(1,Math.ceil((dimensions.size??100)*scale/100));
-  const palette = await Promise.all([base, ...model.paint.map(p => styles[p.style] ?? base)].map(async style => ({
+  const palette = await Promise.all([base, ...model.paint.map(p => p.styleOverride ?? styles[p.style] ?? base)].map(async style => ({
     ...style, floorImage: await texture(style.floorTexture, style.floor,false,floorResolution), wallImage: await texture(style.wallTexture, style.wall, true)
   })));
   const [theme] = palette;

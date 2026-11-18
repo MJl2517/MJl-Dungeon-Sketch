@@ -1,6 +1,6 @@
 import {ID, TITLE, STAIRS, STAIR_COLOR, PASSAGES, empty, rectangle, ellipse, brush, bounds, combine, distance, stairFromEdge, stairAt, stairLines, stairOutline, eraseObjects, generate, wallsFor} from "./model.mjs";
-import {PRESETS, FLOOR_TEXTURES, WALL_TEXTURES, COLORS, drawMap, png} from "./art.mjs";
-import {dimensions, owned, publish, publishDraft, read, styles, installStairGuard, hasLegacyImages, discardDeletedFloor, upgradePressurePlateArt} from "./publish.mjs";
+import {PRESETS, FLOOR_TEXTURES, WALL_TEXTURES, COLORS, drawMap, png, styleChoices, styleValue} from "./art.mjs";
+import {dimensions, owned, publish, publishDraft, read, styles, saveStyle, installStairGuard, hasLegacyImages, discardDeletedFloor, upgradePressurePlateArt} from "./publish.mjs";
 import {chronicleMap,placePoint} from "./points.mjs";
 import {FURNITURE, furnitureAt, drawFurniture, furnitureRasterSize, furnitureBounds, positionFurniture, stepFurnitureScale, wheelFurniture, openContainer, inventoryBackup, installContainerInteraction, installLootDragDrop, connectContainers, refreshContainerMarkers, requestLightSwitch} from "./furniture.mjs";
 import {LIGHTS, LIGHT_COLORS, lightSource, lightFixture, drawLightFixture, installLightInteraction} from "./lights.mjs";
@@ -246,6 +246,7 @@ function makeLayer() {
       panel.querySelector("[name=cut]").checked = preferences.cut;
       panel.addEventListener("change", event => {
         const {name,type,checked,value} = event.target;
+        if(name==="style")delete preferences.styleOverride;
         if(event.target.dataset.colorInput){
           const field=panel.querySelector(`[name=${event.target.dataset.colorInput}]`);field.value=value;field.dispatchEvent(new Event("change",{bubbles:true}));return;
         }
@@ -534,8 +535,9 @@ function makeLayer() {
         saved.pending ? "Восстановление сохранения…" :
         draft.rev !== saved.rev ? "Есть более новая версия · откройте её заново" :
         draft.dirty ? "Ожидает автосохранения…" : saved.rev ? "Все изменения сохранены" : "Автосохранение включено";
-      const presets = {...PRESETS,...styles()};
-      options(this.panel.querySelector("[name=style]"), Object.entries(presets).map(([key,s])=>[key,s.name]),preferences.style);
+      const choices=styleChoices(styles());
+      if(!choices.some(([key])=>key===preferences.style))choices.push([preferences.style,preferences.styleOverride?.name??styles()[preferences.style]?.name??"Текущий стиль"]);
+      options(this.panel.querySelector("[name=style]"),choices,preferences.style);
       const levels = scene.levels.filter(l => l.id !== level.id).map(l => [l.id,l.name]);
       if (preferences.target && !levels.some(([id])=>id===preferences.target)) preferences.target = "";
       this.panel.querySelector("[data-stair]").hidden = !STAIRS[this.tool];
@@ -827,7 +829,8 @@ function makeLayer() {
         });
         else if(tool==="hatch")this.change(model=>model.stairs.push({points:rectangle([box.x,box.y],[box.x+box.width,box.y+box.height]),kind:tool,color:preferences.stairColor,target:preferences.target,id:foundry.utils.randomID()}));
         else if (tool === "erase") this.change(model => eraseObjects(model,box));
-        else if (tool === "paint") this.change(model => model.paint.push({shape:[rectangle(a,b)],style:preferences.style}));
+        else if (tool === "paint") this.change(model => model.paint.push({shape:[rectangle(a,b)],style:preferences.style,
+          ...(preferences.styleOverride?{styleOverride:structuredClone(preferences.styleOverride)}:{})}));
         else this.floor([tool === "ellipse" ? ellipse(a,b) : rectangle(a,b)]);
       } catch (error) {report(error);}
     }
@@ -935,13 +938,20 @@ function makeLayer() {
       if (!form) return;
       const size=dimensions(canvas.scene);
       const floor=generate({...size,...form});
-      this.change(model=>Object.assign(model,empty(),{floor,style:preferences.style}));
+      this.change(model=>{
+        delete model.styleOverride;
+        Object.assign(model,empty(),{floor,style:preferences.style,
+          ...(preferences.styleOverride?{styleOverride:structuredClone(preferences.styleOverride)}:{})});
+      });
     }
 
     async theme(entireFloor=false) {
       if (this.busy || blocked(session())) throw Error("Сначала завершите сохранение.");
       const selected=entireFloor ? session().draft.model.style : preferences.style;
-      const style = ({...PRESETS,...styles()})[selected] ?? PRESETS.stone;
+      const override=entireFloor?session().draft.model.styleOverride:preferences.styleOverride;
+      const style = override ?? ({...PRESETS,...styles()})[selected] ?? PRESETS.stone;
+      let chosen=selected,saving=false,previewReady;
+      const context=session();
       const section = (kind, label) => `<fieldset><legend>${label}</legend>
         <label>Рисунок<select name="${kind}Pattern"></select></label>
         <label data-custom="${kind}">Свой файл<file-picker name="${kind}Texture" type="image"></file-picker></label>
@@ -950,14 +960,25 @@ function makeLayer() {
         <label>Свой цвет<input name="${kind}" type="color" aria-label="Цвет · ${label}"></label></fieldset>`;
       const form = await dialog().input({window:{title:entireFloor ? "Стиль всего этажа" : "Стиль кисти",icon:"fa-solid fa-palette"},classes:["mjl-brand","mds-theme-dialog"],
         position:{width:600},modal:true,rejectClose:false,
-        content:`<label>Название стиля<input name="name" maxlength="50" required></label>
+        content:`<label>Готовый стиль<select name="preset"><option value="">Текущие настройки</option></select></label>
+        <label>Название стиля<input name="name" maxlength="50" required></label>
         <div class="mds-materials">${section("floor","Пол")}${section("wall","Стены")}</div>
         <label>Толщина стен<input name="width" type="number" min="1" max="36" step="1" required></label>
         <div class="mds-style-preview-host"></div>
         <p class="mds-texture-error" role="status" hidden></p>
-        <p>${entireFloor ? "Стиль заменит оформление всего текущего этажа, включая ранее окрашенные области. Изменение можно отменить; оно сохранится автоматически." : "Стиль используется для кисти оформления. Стиль всего этажа настраивается кнопкой палитры слева."}</p>`,
+        <button type="button" data-save-style><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Сохранить стиль</button>
+        <p data-style-status role="status"></p>
+        <p>${entireFloor ? "«Применить» изменит весь текущий этаж, включая окрашенные области. «Сохранить стиль» добавит настройки в библиотеку для повторного выбора." : "«Применить» выберет оформление кисти. «Сохранить стиль» добавит его в библиотеку."}</p>`,
         buttons:[{action:"cancel",label:"Отмена",callback:()=>false}],
-        ok:{label:"Сохранить стиль"},
+        ok:{label:"Применить",callback:async(_event,button)=>{
+          if(saving)throw Error("Дождитесь сохранения стиля.");
+          const values=styleValue(Object.fromEntries(new FormData(button.form)));
+          if(!values.name)throw Error("Укажите название стиля.");
+          await previewReady;
+          const error=button.form.querySelector(".mds-texture-error");
+          if(!error.hidden)throw Error(error.textContent);
+          return values;
+        }},
         render:(_event,app)=>{
           const root = app.element;
           const canvas=document.createElement("canvas");
@@ -966,16 +987,21 @@ function makeLayer() {
           canvas.setAttribute("role","img");
           canvas.setAttribute("aria-label","Предпросмотр выбранного пола и стен");
           root.querySelector(".mds-style-preview-host").replaceChildren(canvas);
-          for(const [key,value] of Object.entries(style)) {
-            const field=root.querySelector(`[name="${key}"]`);
-            if(field) field.value=value;
-          }
-          for (const [kind, textures] of [["floor",FLOOR_TEXTURES],["wall",WALL_TEXTURES]]) {
-            const src = style[`${kind}Texture`] ?? "";
-            options(root.querySelector(`[name="${kind}Pattern"]`),[...textures,["custom","Свой файл…"]],
-              textures.some(([path])=>path===src) ? src : "custom");
-            root.querySelector(`[data-custom="${kind}"]`).hidden = textures.some(([path])=>path===src);
-          }
+          const preset=root.querySelector('[name="preset"]');
+          const fill=style=>{
+            for(const [key,value] of Object.entries(styleValue(style)))root.querySelector(`[name="${key}"]`).value=value;
+            for (const [kind,textures] of [["floor",FLOOR_TEXTURES],["wall",WALL_TEXTURES]]) {
+              const src=style[`${kind}Texture`]??"",builtin=textures.some(([path])=>path===src);
+              options(root.querySelector(`[name="${kind}Pattern"]`),[...textures,["custom","Свой файл…"]],builtin?src:"custom");
+              root.querySelector(`[data-custom="${kind}"]`).hidden=builtin;
+            }
+          };
+          const refreshChoices=()=>{
+            const all={...PRESETS,...styles()},signature=JSON.stringify(styleValue(style));
+            const current=Object.entries(all).find(([,s])=>JSON.stringify(styleValue(s))===signature)?.[0]??"";
+            options(preset,[["","Текущие настройки"],...styleChoices(styles())],current);
+          };
+          refreshChoices();fill(style);
           let epoch=0;
           const sample = {...empty(),style:"sample",floor:[rectangle([14,14],[498,166])],
             walls:[{a:[290,14],b:[290,110],kind:"wall"}]};
@@ -999,33 +1025,55 @@ function makeLayer() {
             }
           };
           root.addEventListener("click",event=>{
+            if(event.target.closest("[data-save-style]")){
+              if(saving)return;
+              saving=true;
+              const button=root.querySelector("[data-save-style]"),status=root.querySelector("[data-style-status]");
+              button.disabled=true;
+              Promise.resolve().then(async()=>{
+                await previewReady;
+                const error=root.querySelector(".mds-texture-error");
+                if(!error.hidden)throw Error(error.textContent);
+                const values=Object.fromEntries(new FormData(root.querySelector("form")));
+                const saved=await saveStyle(values);
+                chosen=saved.key;
+                root.querySelector('[name="name"]').value=saved.style.name;
+                options(preset,[["","Текущие настройки"],...styleChoices(styles())],saved.key);
+                status.textContent="Стиль сохранён. Нажмите «Применить», чтобы использовать его.";
+              }).catch(error=>{status.textContent=error.message;ui.notifications.error(error.message);})
+                .finally(()=>{saving=false;button.disabled=false;});
+              return;
+            }
             const swatch=event.target.closest("[data-color]");
             if(!swatch) return;
             root.querySelector(`[name="${swatch.dataset.kind}"]`).value=swatch.dataset.color;
-            preview();
+            previewReady=preview();
           });
           root.addEventListener("change",event=>{
+            if(event.target.name==="preset"&&event.target.value){
+              chosen=event.target.value;
+              fill(({...PRESETS,...styles()})[chosen]);
+              root.querySelector("[data-style-status]").textContent="";
+            }
             const kind=event.target.name==="floorPattern" ? "floor" : event.target.name==="wallPattern" ? "wall" : null;
             if(kind) {
               const custom=event.target.value==="custom";
               root.querySelector(`[data-custom="${kind}"]`).hidden=!custom;
               if(!custom) root.querySelector(`[name="${kind}Texture"]`).value=event.target.value;
             }
-            preview();
+            previewReady=preview();
           });
-          root.addEventListener("input",preview);
-          preview();
+          root.addEventListener("input",()=>{previewReady=preview();});
+          previewReady=preview();
         }});
       if (!form) return;
-      const name = String(form.name ?? "").trim();
-      if (!name) throw Error("Укажите название стиля.");
-      // Copy styles so changing this floor never recolors another floor or an old paint patch.
-      const key = foundry.utils.randomID();
-      const {floor,wall,floorTexture,wallTexture}=form;
-      const next={name,floor,wall,floorTexture,wallTexture,width:Math.min(36,Math.max(1,Number(form.width)||7))};
-      await game.settings.set(ID,"styles",{...styles(),[key]:next});
-      preferences.style=key;
-      if (entireFloor) this.change(model=>{model.style=key;model.paint=[];});
+      if(canvas.scene!==context.scene||canvas.level!==context.level)throw Error("Этаж изменился. Откройте настройку стиля заново.");
+      preferences.style=chosen;
+      preferences.styleOverride=structuredClone(form);
+      if (entireFloor){
+        this.change(model=>{model.style=chosen;model.styleOverride=structuredClone(form);model.paint=[];});
+        await saveNow(context);
+      }
       this.refresh();
     }
   };

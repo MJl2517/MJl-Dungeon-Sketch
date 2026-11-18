@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import {createRequire} from "node:module";
 import {readFile} from "node:fs/promises";
 import {ID, STAIRS, STAIR_COLOR, PASSAGES, empty, rectangle, ellipse, brush, combine, placeDoor, wallsFor, eraseObjects, generate, stairOutline, stairFromEdge, stairAt, stairLines, stairGate, distance} from "../scripts/model.mjs";
-import {reconcile, publish, publishDraft, installStairGuard} from "../scripts/publish.mjs";
-import {inkColor, FLOOR_TEXTURES, WALL_TEXTURES, floorPatternPlacement,drawStair,drawPassage} from "../scripts/art.mjs";
+import {reconcile, publish, publishDraft, installStairGuard, saveStyle} from "../scripts/publish.mjs";
+import {PRESETS,styleChoices,inkColor, FLOOR_TEXTURES, WALL_TEXTURES, floorPatternPlacement,drawStair,drawPassage} from "../scripts/art.mjs";
 import {FURNITURE, furnitureAt, drawFurniture, furnitureRasterSize, furnitureBounds, positionFurniture, stepFurnitureScale, wheelFurniture, validateInventories, containerDistance, validateContainerAccess, containerMarkerCenter, containerConnectionIssue, connectContainers} from "../scripts/furniture.mjs";
 import {LIGHTS,lightSource,lightConfig,lightFixture,drawLightFixture,toggleLight,canReachLight,handleLightSwitch} from "../scripts/lights.mjs";
 import {TRAPS,drawTrap,trapHidden,trapTile,trapMarkerPoint} from "../scripts/traps.mjs";
@@ -12,6 +12,26 @@ import {chronicleMap} from "../scripts/points.mjs";
 const require = createRequire(import.meta.url);
 const root = process.env.FOUNDRY_APP ?? "C:/Program Files/Foundry Virtual Tabletop/resources/app";
 globalThis.ClipperLib = require(root + "/public/scripts/clipper/clipper.js");
+{
+ const previousGame=globalThis.game,previousFoundry=globalThis.foundry;
+ const library={copy1:{...PRESETS.stone},copy2:{...PRESETS.stone},variant:{...PRESETS.stone,floor:"#abcdef"}};
+ assert.deepEqual(styleChoices(library).map(([key])=>key),["stone","cave","blue","variant"]);
+ let writes=0;
+ globalThis.game={user:{isGM:true},users:{activeGM:{isSelf:true}},
+   settings:{get:()=>library,set:async(_id,_key,next)=>{writes++;Object.assign(library,next);}}};
+ globalThis.foundry={utils:{randomID:()=>"savedStyle000001"}};
+ const original=JSON.stringify(library.variant);
+ assert.equal((await saveStyle(PRESETS.stone)).key,"stone");assert.equal(writes,0);
+ const values={...PRESETS.stone,floor:"#112233"};
+ const saved=await saveStyle(values);
+ assert.equal(writes,1);assert.equal(saved.style.name,"Камень (2)");
+ assert.equal((await saveStyle(saved.style)).key,saved.key);assert.equal(writes,1);
+ assert.equal(JSON.stringify(library.variant),original);
+ await assert.rejects(saveStyle({...values,width:0}),/толщину/);
+ game.user.isGM=false;await assert.rejects(saveStyle(values),/мастер/);
+ globalThis.game=previousGame;globalThis.foundry=previousFoundry;
+}
+console.log("OK: saved styles deduplicate exact copies, preserve existing variants, reject invalid values and require the active GM.");
 {
  const grid={isSquare:true,diagonals:0,size:100,distance:5,units:"ft"};
  const dims={size:100,sceneX:1000,sceneY:800},user={active:true};

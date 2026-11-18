@@ -1,10 +1,25 @@
 import {ID, STAIRS, PASSAGES, empty, wallsFor, stairGate} from "./model.mjs";
-import {drawMap, png} from "./art.mjs";
+import {drawMap, png, PRESETS, styleValue} from "./art.mjs";
 import {LIGHTS,lightConfig} from "./lights.mjs";
 import {drawTrap,TRAPS,trapTile} from "./traps.mjs";
 import {SURFACE_KEY,visibleOn,floorSurface} from "./levels.mjs";
 
 export const styles = () => game.settings.get(ID, "styles");
+export async function saveStyle(values) {
+  if(!game.user.isGM||!game.users.activeGM?.isSelf)throw Error("Стили сохраняет активный мастер.");
+  const style=styleValue(values);
+  if(!style.name||style.name.length>50||!/^#[0-9a-f]{6}$/i.test(style.floor)||!/^#[0-9a-f]{6}$/i.test(style.wall)||
+    !Number.isInteger(style.width)||style.width<1||style.width>36)throw Error("Укажите название, цвета и толщину стен от 1 до 36.");
+  const library=styles(),all={...PRESETS,...library},signature=JSON.stringify(style);
+  const match=Object.entries(all).find(([,item])=>JSON.stringify(styleValue(item))===signature);
+  if(match)return {key:match[0],style:structuredClone(match[1])};
+  const names=new Set(Object.values(all).map(item=>item.name));
+  const name=style.name;
+  for(let n=2;names.has(style.name);n++)style.name=`${name.slice(0,43)} (${n})`;
+  const key=foundry.utils.randomID();
+  await game.settings.set(ID,"styles",{...library,[key]:style});
+  return {key,style};
+}
 export const dimensions = scene => {
   const {sceneX:x, sceneY:y, sceneWidth:width, sceneHeight:height, size} = scene.getDimensions();
   return {x, y, width, height, size};
