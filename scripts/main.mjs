@@ -1,6 +1,6 @@
 import {ID, TITLE, STAIRS, STAIR_COLOR, PASSAGES, empty, rectangle, ellipse, brush, bounds, combine, distance, stairFromEdge, stairAt, stairLines, stairOutline, eraseObjects, generate, wallsFor} from "./model.mjs";
 import {PRESETS, FLOOR_TEXTURES, WALL_TEXTURES, COLORS, drawMap, png, styleChoices, styleValue} from "./art.mjs";
-import {dimensions, owned, publish, publishDraft, read, styles, saveStyle, installStairGuard, hasLegacyImages, discardDeletedFloor, upgradeFloorLighting, upgradePressurePlateArt} from "./publish.mjs";
+import {dimensions, owned, publish, publishDraft, read, styles, saveStyle, deleteStyle, preserveStyles, installStairGuard, hasLegacyImages, discardDeletedFloor, upgradeFloorLighting, upgradePressurePlateArt} from "./publish.mjs";
 import {chronicleMap,placePoint} from "./points.mjs";
 import {FURNITURE, furnitureAt, drawFurniture, furnitureRasterSize, furnitureBounds, positionFurniture, stepFurnitureScale, wheelFurniture, openContainer, inventoryBackup, installContainerInteraction, installLootDragDrop, connectContainers, refreshContainerMarkers, requestLightSwitch} from "./furniture.mjs";
 import {LIGHTS, LIGHT_COLORS, lightSource, lightFixture, drawLightFixture, installLightInteraction} from "./lights.mjs";
@@ -18,6 +18,7 @@ const tools = {
   rectangle: ["Прямоугольник","fa-vector-square"], ellipse: ["Эллипс","fa-circle"],
   polygon: ["Многоугольник · Enter завершает","fa-draw-polygon"], brush: ["Свободная кисть","fa-paintbrush"],
   wall: ["Внутренняя стена","fa-grip-lines"], invisible: ["Невидимая стена","fa-eye-slash"],
+  ethereal:["Бесплотная стена","fa-ghost"],
   ...Object.fromEntries(Object.entries(PASSAGES).map(([key,{name,icon}])=>[key,[name,icon]])),
   paint: ["Нанести стиль","fa-palette"], erase: ["Удалить объекты в области","fa-eraser"],
   ...Object.fromEntries(Object.entries(STAIRS).map(([key,{name,icon}])=>[key,[name,icon]])),
@@ -27,14 +28,14 @@ const tools = {
   ...Object.fromEntries(Object.entries(LIGHTS).map(([key,{name,icon}])=>[key,[name,icon]])),
   ...Object.fromEntries(Object.entries(FURNITURE).map(([key,{name,icon}])=>[key,[name,icon]]))
 };
-const groups={pointer:{name:"Указатель",icon:"fa-arrow-pointer",tools:["select"]},structure:{name:"Стены и проходы",icon:"fa-dungeon",tools:["rectangle","ellipse","polygon","brush","wall","invisible",...Object.keys(PASSAGES),"paint","erase"]},
+const groups={pointer:{name:"Указатель",icon:"fa-arrow-pointer",tools:["select"]},structure:{name:"Стены и проходы",icon:"fa-dungeon",tools:["rectangle","ellipse","polygon","brush","wall","invisible","ethereal",...Object.keys(PASSAGES),"paint","erase"]},
   levels:{name:"Этажи",icon:"fa-layer-group",tools:[...Object.keys(STAIRS),"opening","railing","erase"]},
   light:{name:"Свет",icon:"fa-lightbulb",tools:[...Object.keys(LIGHTS),"erase"]},
   furniture:{name:"Мебель",icon:"fa-chair",tools:[...Object.keys(FURNITURE),"erase"]},
   traps:{name:"Ловушки",icon:"fa-skull-crossbones",tools:[...Object.keys(TRAPS),"erase"]},
   points:{name:"Точки интереса",icon:"fa-map-pin",tools:["journalPin","chroniclePin"]},
   utilities:{name:"Инструменты",icon:"fa-hammer",tools:[]}};
-const lineTools = new Set(["wall","invisible",...Object.keys(PASSAGES),"railing"]);
+const lineTools = new Set(["wall","invisible","ethereal",...Object.keys(PASSAGES),"railing"]);
 const edgeStairs=new Set(["stair","ladder","steps"]);
 const dragTools = new Set(["rectangle","ellipse","brush",...lineTools,"paint","erase","opening",...Object.keys(STAIRS)]);
 const drafts = new Map();
@@ -523,6 +524,7 @@ function makeLayer() {
         this.tool==="hatch" ? "Обведите прямоугольник люка. Привязка — к сетке, Shift — свободный размер. Для перехода выберите другой этаж." :
         this.tool==="opening" ? "Обведите проём прямоугольником. Нижний этаж будет виден через него при включённом обзоре вниз." :
         this.tool==="railing" ? "Проведите перила от начала до конца. Они не пропускают движение и позволяют видеть вниз." :
+        this.tool==="ethereal" ? "Проведите бесплотную стену. Выглядит как обычная, закрывает зрение и свет, но пропускает движение." :
         PASSAGES[preferences.tool] ? "Проведите от начала до конца проёма. Привязки к стенам нет; Shift отключает сетку." :
         LIGHTS[this.tool] ? "Выберите вариант и нажмите на карту. Силуэт и источник привязываются к центру клетки; Shift отключает сетку." :
         preferences.tool==="erase" ? "Обведите область: стены, двери, окна, свет, лестницы, ловушки и мебель будут удалены. Для пола включите «Вырезать пол»." :
@@ -816,7 +818,7 @@ function makeLayer() {
       const box = bounds(a,b);
       try {
         if (tool === "brush") this.floor(brush([...points,b],Math.max(5,dimensions(canvas.scene).size*0.16)));
-        else if (["wall","invisible","railing"].includes(tool)) this.change(model => model.walls.push({a,b,kind:tool}));
+        else if (["wall","invisible","railing","ethereal"].includes(tool)) this.change(model => model.walls.push({a,b,kind:tool}));
         else if (PASSAGES[tool]) this.change(model => model.doors.push({a,b,kind:tool,free:true}));
         else if (edgeStairs.has(tool)) {
           this.stairDraft={a,b,kind:tool,shape:null};
@@ -960,7 +962,8 @@ function makeLayer() {
         <label>Свой цвет<input name="${kind}" type="color" aria-label="Цвет · ${label}"></label></fieldset>`;
       const form = await dialog().input({window:{title:entireFloor ? "Стиль всего этажа" : "Стиль кисти",icon:"fa-solid fa-palette"},classes:["mjl-brand","mds-theme-dialog"],
         position:{width:600},modal:true,rejectClose:false,
-        content:`<label>Готовый стиль<select name="preset"><option value="">Текущие настройки</option></select></label>
+        content:`<div class="mds-style-choice"><label>Готовый стиль<select name="preset"><option value="">Текущие настройки</option></select></label>
+        <button type="button" data-delete-style><i class="fa-solid fa-trash" aria-hidden="true"></i> Удалить стиль</button></div>
         <label>Название стиля<input name="name" maxlength="50" required></label>
         <div class="mds-materials">${section("floor","Пол")}${section("wall","Стены")}</div>
         <label>Толщина стен<input name="width" type="number" min="1" max="36" step="1" required></label>
@@ -988,6 +991,12 @@ function makeLayer() {
           canvas.setAttribute("aria-label","Предпросмотр выбранного пола и стен");
           root.querySelector(".mds-style-preview-host").replaceChildren(canvas);
           const preset=root.querySelector('[name="preset"]');
+          const deleteButton=root.querySelector("[data-delete-style]");
+          const updateDelete=()=>{
+            const selected=({...PRESETS,...styles()})[preset.value];
+            deleteButton.disabled=saving||!selected||!Object.values(styles()).some(s=>JSON.stringify(styleValue(s))===JSON.stringify(styleValue(selected)));
+            deleteButton.title=deleteButton.disabled?"Выберите сохранённый стиль. Встроенные стили остаются доступны.":"Удалить из библиотеки, сохранив оформление существующих карт. Одинаковые копии удаляются вместе.";
+          };
           const fill=style=>{
             for(const [key,value] of Object.entries(styleValue(style)))root.querySelector(`[name="${key}"]`).value=value;
             for (const [kind,textures] of [["floor",FLOOR_TEXTURES],["wall",WALL_TEXTURES]]) {
@@ -1000,6 +1009,7 @@ function makeLayer() {
             const all={...PRESETS,...styles()},signature=JSON.stringify(styleValue(style));
             const current=Object.entries(all).find(([,s])=>JSON.stringify(styleValue(s))===signature)?.[0]??"";
             options(preset,[["","Текущие настройки"],...styleChoices(styles())],current);
+            updateDelete();
           };
           refreshChoices();fill(style);
           let epoch=0;
@@ -1025,6 +1035,25 @@ function makeLayer() {
             }
           };
           root.addEventListener("click",event=>{
+            if(event.target.closest("[data-delete-style]")){
+              if(saving||deleteButton.disabled)return;
+              const key=preset.value,label=preset.selectedOptions[0].textContent;
+              saving=true;updateDelete();
+              Promise.resolve().then(async()=>{
+                if(!await dialog().confirm({window:{title:"Удалить стиль"},classes:["mjl-brand"],content:`<p>Удалить «${foundry.utils.escapeHTML(label)}» из библиотеки вместе с одинаковыми копиями? Оформление существующих карт сохранится.</p>`,yes:{label:"Удалить"},no:{label:"Отмена"},modal:true,rejectClose:false}))return;
+                const removed=await (saveQueue=saveQueue.catch(()=>{}).then(()=>deleteStyle(key)));
+                for(const draft of drafts.values()){
+                  draft.model=preserveStyles(draft.model,removed);
+                  draft.undo=draft.undo.map(model=>preserveStyles(model,removed));draft.redo=draft.redo.map(model=>preserveStyles(model,removed));
+                }
+                if(!preferences.styleOverride&&removed[preferences.style])preferences.styleOverride=structuredClone(removed[preferences.style]);
+                options(preset,[["","Текущие настройки"],...styleChoices(styles())],"");
+                root.querySelector("[data-style-status]").textContent="Стиль удалён из библиотеки. Оформление существующих карт сохранено.";
+                this.refresh();
+              }).catch(error=>{root.querySelector("[data-style-status]").textContent=error.message;ui.notifications.error(error.message);})
+                .finally(()=>{saving=false;updateDelete();});
+              return;
+            }
             if(event.target.closest("[data-save-style]")){
               if(saving)return;
               saving=true;
@@ -1041,13 +1070,14 @@ function makeLayer() {
                 options(preset,[["","Текущие настройки"],...styleChoices(styles())],saved.key);
                 status.textContent="Стиль сохранён. Нажмите «Применить», чтобы использовать его.";
               }).catch(error=>{status.textContent=error.message;ui.notifications.error(error.message);})
-                .finally(()=>{saving=false;button.disabled=false;});
+                .finally(()=>{saving=false;button.disabled=false;updateDelete();});
               return;
             }
             const swatch=event.target.closest("[data-color]");
             if(!swatch) return;
             root.querySelector(`[name="${swatch.dataset.kind}"]`).value=swatch.dataset.color;
             previewReady=preview();
+            updateDelete();
           });
           root.addEventListener("change",event=>{
             if(event.target.name==="preset"&&event.target.value){
@@ -1062,6 +1092,7 @@ function makeLayer() {
               if(!custom) root.querySelector(`[name="${kind}Texture"]`).value=event.target.value;
             }
             previewReady=preview();
+            updateDelete();
           });
           root.addEventListener("input",()=>{previewReady=preview();});
           previewReady=preview();

@@ -139,7 +139,7 @@ export function wallsFor(model) {
     result.set(key, {a, b, kind, key});
   };
   const floorEdges=[];
-  const overrides=[...(model.openings??[]).flatMap(o=>edges([o.points]).map(e=>({...e,kind:o.railing?"railing":"open"}))),...model.walls.filter(w=>w.kind==="railing")];
+  const overrides=[...(model.openings??[]).flatMap(o=>edges([o.points]).map(e=>({...e,kind:o.railing?"railing":"open"}))),...model.walls.filter(w=>["railing","ethereal"].includes(w.kind))];
   for(const edge of edges(model.floor)){
     const spans=overrides.map(o=>{const span=overlap(edge,o);return span&&{...span,kind:o.kind};}).filter(Boolean);
     const cuts=[...new Set([0,1,...spans.flatMap(s=>[s.from,s.to])])].sort((a,b)=>a-b);

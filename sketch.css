@@ -125,6 +125,7 @@
 .mds-hotkeys-dialog td { padding:5px 8px; }
 .mds-hotkeys-dialog td:first-child { white-space:nowrap; }
 .mds-theme-dialog .mds-materials { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.mds-theme-dialog .mds-style-choice { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:end; }
 .mds-theme-dialog fieldset { display:grid; gap:10px; min-width:0; padding:10px; }
 .mds-theme-dialog [data-custom][hidden] { display:none; }
 .mds-theme-dialog .mds-colors { display:flex; gap:6px; flex-wrap:wrap; }

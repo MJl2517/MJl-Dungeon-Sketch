@@ -20,6 +20,32 @@ export async function saveStyle(values) {
   await game.settings.set(ID,"styles",{...library,[key]:style});
   return {key,style};
 }
+export function preserveStyles(model,removed) {
+  if(!model||![model,...(model.paint??[])].some(p=>!p.styleOverride&&removed[p.style]))return model;
+  const copy=structuredClone(model);
+  for(const part of [copy,...(copy.paint??[])])if(!part.styleOverride&&removed[part.style])part.styleOverride=structuredClone(removed[part.style]);
+  return copy;
+}
+export async function deleteStyle(key) {
+  if(!game.user.isGM||!game.users.activeGM?.isSelf)throw Error("Стили удаляет активный мастер.");
+  const library=styles(),style=({...PRESETS,...library})[key];
+  if(typeof key!=="string"||!Object.hasOwn({...PRESETS,...library},key))throw Error("Выберите сохранённый стиль.");
+  const signature=JSON.stringify(styleValue(style));
+  const removed=Object.fromEntries(Object.entries(library).filter(([,s])=>JSON.stringify(styleValue(s))===signature));
+  if(!Object.keys(removed).length)throw Error("Встроенный стиль нельзя удалить.");
+  for(const scene of game.scenes){
+    const updates={};
+    for(const [id,state] of Object.entries(scene.flags[ID]??{})){
+      for(const path of ["model","pending.model"]){
+        const model=path==="model"?state?.model:state?.pending?.model,next=preserveStyles(model,removed);
+        if(next!==model)updates[`flags.${ID}.${id}.${path}`]=next;
+      }
+    }
+    if(Object.keys(updates).length)await scene.update(updates);
+  }
+  await game.settings.set(ID,"styles",Object.fromEntries(Object.entries(library).filter(([id])=>!Object.hasOwn(removed,id))));
+  return removed;
+}
 export const dimensions = scene => {
   const {sceneX:x, sceneY:y, sceneWidth:width, sceneHeight:height, size} = scene.getDimensions();
   return {x, y, width, height, size};
@@ -256,6 +282,7 @@ async function finish(scene, level, state, pending) {
   await reconcile(scene, "Wall", level.id, identified("Wall", wallsFor(model).map(({a,b,key,kind}) => [
     `${kind}:${key}`, {c: [a[0]+x,a[1]+y,b[0]+x,b[1]+y].map(Math.round), levels,
       door: kind === "secret" ? door.SECRET : PASSAGES[kind] && kind!=="window" ? door.DOOR : door.NONE,
+      move:kind==="ethereal"?edge.NONE:edge.NORMAL,
       sight: ["invisible","railing"].includes(kind) || PASSAGES[kind]?.transparent ? edge.NONE : kind === "window" ? edge.PROXIMITY : edge.NORMAL,
       light: ["invisible","railing"].includes(kind) || PASSAGES[kind]?.transparent ? edge.NONE : kind === "window" ? edge.PROXIMITY : edge.NORMAL,
       sound: ["invisible","railing"].includes(kind) || PASSAGES[kind]?.transparent ? edge.NONE : edge.NORMAL,
