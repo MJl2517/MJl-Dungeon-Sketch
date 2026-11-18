@@ -109,6 +109,11 @@ export function hasLegacyImages(scene,level) {
   return !state.pending && (legacyImage(state.asset) || owned(scene,"Tile",level.id).some(tile=>legacyImage(tile.texture.src)));
 }
 
+export async function upgradeFloorLighting(scene) {
+  const tiles=scene.tiles.filter(tile=>scene.levels.has(tile.getFlag(ID,"level"))&&tile.getFlag(ID,"key")==="map"&&!tile.restrictions.light);
+  if(tiles.length)await scene.updateEmbeddedDocuments("Tile",tiles.map(tile=>({_id:tile.id,"restrictions.light":true})));
+}
+
 export async function upgradePressurePlateArt(scene) {
   for(const level of scene.levels){
     const state=read(scene,level);
@@ -275,7 +280,7 @@ async function finish(scene, level, state, pending) {
   }
   const tiles=mode === "tile" && asset ? [["map", {
     name: "Dungeon Sketch", texture: {src:asset, anchorX:0, anchorY:0}, x,y,width:size.width,height:size.height,
-    elevation: elevation(level), levels:visibleLevels, sort: -100000, locked: true
+    elevation: elevation(level), levels:visibleLevels, sort: -100000, locked: true, restrictions:{light:true}
   }]] : [];
   const traps=model.traps??[];
   const oldPlates=traps.filter(trap=>trap.kind==="pressurePlate"&&!currentPlateArt(pending.trapAssets?.[trap.id]));

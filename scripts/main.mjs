@@ -1,6 +1,6 @@
 import {ID, TITLE, STAIRS, STAIR_COLOR, PASSAGES, empty, rectangle, ellipse, brush, bounds, combine, distance, stairFromEdge, stairAt, stairLines, stairOutline, eraseObjects, generate, wallsFor} from "./model.mjs";
 import {PRESETS, FLOOR_TEXTURES, WALL_TEXTURES, COLORS, drawMap, png, styleChoices, styleValue} from "./art.mjs";
-import {dimensions, owned, publish, publishDraft, read, styles, saveStyle, installStairGuard, hasLegacyImages, discardDeletedFloor, upgradePressurePlateArt} from "./publish.mjs";
+import {dimensions, owned, publish, publishDraft, read, styles, saveStyle, installStairGuard, hasLegacyImages, discardDeletedFloor, upgradeFloorLighting, upgradePressurePlateArt} from "./publish.mjs";
 import {chronicleMap,placePoint} from "./points.mjs";
 import {FURNITURE, furnitureAt, drawFurniture, furnitureRasterSize, furnitureBounds, positionFurniture, stepFurnitureScale, wheelFurniture, openContainer, inventoryBackup, installContainerInteraction, installLootDragDrop, connectContainers, refreshContainerMarkers, requestLightSwitch} from "./furniture.mjs";
 import {LIGHTS, LIGHT_COLORS, lightSource, lightFixture, drawLightFixture, installLightInteraction} from "./lights.mjs";
@@ -1129,7 +1129,7 @@ Hooks.once("ready",()=>{
       context.draft.dirty=true;
       saveNow(context).catch(report);
     }
-    saveQueue=saveQueue.catch(()=>{}).then(()=>upgradePressurePlateArt(scene)).catch(report);
+    saveQueue=saveQueue.catch(()=>{}).then(async()=>{await upgradeFloorLighting(scene);await upgradePressurePlateArt(scene);}).catch(report);
   }
 });
 Hooks.on("deleteLevel",level=>{

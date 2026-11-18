@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {createRequire} from "node:module";
 import {readFile} from "node:fs/promises";
 import {ID, STAIRS, STAIR_COLOR, PASSAGES, empty, rectangle, ellipse, brush, combine, placeDoor, wallsFor, eraseObjects, generate, stairOutline, stairFromEdge, stairAt, stairLines, stairGate, distance} from "../scripts/model.mjs";
-import {reconcile, publish, publishDraft, installStairGuard, saveStyle} from "../scripts/publish.mjs";
+import {reconcile, publish, publishDraft, installStairGuard, saveStyle, upgradeFloorLighting} from "../scripts/publish.mjs";
 import {PRESETS,styleChoices,inkColor, FLOOR_TEXTURES, WALL_TEXTURES, floorPatternPlacement,drawStair,drawPassage} from "../scripts/art.mjs";
 import {FURNITURE, furnitureAt, drawFurniture, furnitureRasterSize, furnitureBounds, positionFurniture, stepFurnitureScale, wheelFurniture, validateInventories, containerDistance, validateContainerAccess, containerMarkerCenter, containerConnectionIssue, connectContainers} from "../scripts/furniture.mjs";
 import {LIGHTS,lightSource,lightConfig,lightFixture,drawLightFixture,toggleLight,canReachLight,handleLightSwitch} from "../scripts/lights.mjs";
@@ -218,6 +218,16 @@ console.log("OK: six trap drawings preserve natural aspect; default-hidden nativ
  assert.equal(pointUnderFloor(island,350,350),false);
 }
 console.log("OK: floor plan keeps IDs/above-level links, applies heights and below visibility; voids remove walls, railings override partial boundaries, floor surfaces keep holes and exact elevations.");
+{
+ const tile=(id,level,key,light)=>({id,getFlag:(_id,name)=>name==="level"?level:key,restrictions:{light}});
+ const tiles=[tile("old","A","map",false),tile("current","A","map",true),tile("trap","A","trap:1",false),tile("foreign",null,"map",false),tile("deleted","missing","map",false)];
+ let writes=0;
+ const scene={levels:new Map([["A",{}]]),tiles,updateEmbeddedDocuments:async(type,data)=>{
+  assert.equal(type,"Tile");assert.deepEqual(data,[{_id:"old","restrictions.light":true}]);writes++;tiles[0].restrictions.light=true;
+ }};
+ await upgradeFloorLighting(scene);await upgradeFloorLighting(scene);assert.equal(writes,1);
+}
+console.log("OK: floor light-blocking upgrade is idempotent and preserves foreign tiles, traps and deleted-floor objects.");
 const inventory={version:1,containers:{scene_level_chest:{rev:1,items:[{uuid:"Compendium.dnd5e.items.Item.ruby",name:"Ruby",quantity:2}]}}};
 assert.equal(validateInventories(inventory),inventory);
 assert.throws(()=>validateInventories({...inventory,version:2}));
